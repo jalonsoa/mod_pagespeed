@@ -1442,6 +1442,7 @@ apr_memcache2_multgetp(apr_memcache2_t *mc,
                char *last;
                char *data;
                apr_size_t len = 0;
+               apr_size_t len_2 = 0;
                int length_ok = 1;
 
                key = apr_strtok(conn->buffer, " ", &last); /* just the VALUE, ignore */
@@ -1451,9 +1452,20 @@ apr_memcache2_multgetp(apr_memcache2_t *mc,
 
                length = apr_strtok(NULL, " ", &last);
                length_ok = (length == NULL) || parse_size(length, &len);
+               if (length) {
+                 len_2 = atoi(length);
+               }
+
                value = apr_hash_get(values, key, strlen(key));
 
                if (value) {
+                   if (!length_ok) {
+                      fprintf(stderr,
+                              "Prevented infinite loop, asserting failure. "
+                              "parse_size len %zu atoi len %zu",
+                              len, len_2);
+                      assert(length_ok);
+                   }
                    if (length_ok) {
                        apr_bucket_brigade *bbb;
                        apr_bucket *e;
