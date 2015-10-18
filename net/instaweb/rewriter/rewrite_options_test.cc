@@ -911,6 +911,7 @@ TEST_F(RewriteOptionsTest, LookupOptionByNameTest) {
     RewriteOptions::kInPlaceResourceOptimization,
     RewriteOptions::kInPlaceRewriteDeadlineMs,
     RewriteOptions::kInPlaceWaitForOptimized,
+    RewriteOptions::kInsertContentExclude,
     RewriteOptions::kJsInlineMaxBytes,
     RewriteOptions::kJsOutlineMinBytes,
     RewriteOptions::kJsPreserveURLs,
@@ -2017,6 +2018,8 @@ TEST_F(RewriteOptionsTest, FilterLookupMethods) {
             RewriteOptions::LookupOptionNameById("ig"));
   EXPECT_EQ(RewriteOptions::kImageJpegRecompressionQuality,
             RewriteOptions::LookupOptionNameById("iq"));
+  EXPECT_EQ(RewriteOptions::kInsertContentExclude,
+            RewriteOptions::LookupOptionNameById("iue"));
   EXPECT_TRUE(RewriteOptions::LookupOptionNameById("  ").empty());
   EXPECT_TRUE(RewriteOptions::LookupOptionNameById("junk").empty());
   EXPECT_TRUE(RewriteOptions::LookupOptionNameById("").empty());

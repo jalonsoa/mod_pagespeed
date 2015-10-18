@@ -32,6 +32,7 @@
 #include "net/instaweb/rewriter/public/experiment_util.h"
 #include "net/instaweb/rewriter/public/file_load_policy.h"
 #include "net/instaweb/rewriter/public/javascript_library_identification.h"
+#include "net/instaweb/rewriter/public/insert_content_rule_map.h"
 #include "net/instaweb/util/public/basictypes.h"
 #include "net/instaweb/util/public/enum_set.h"
 #include "net/instaweb/util/public/gtest_prod.h"
@@ -150,6 +151,7 @@ class RewriteOptions {
     kInlineImportToLink,
     kInlineJavascript,
     kInPlaceOptimizeForBrowser,
+    kInsertContent,
     kInsertDnsPrefetch,
     kInsertGA,
     kInsertImageDimensions,
@@ -290,6 +292,7 @@ class RewriteOptions {
   static const char kInPlaceResourceOptimization[];
   static const char kInPlaceRewriteDeadlineMs[];
   static const char kInPlaceWaitForOptimized[];
+  static const char kInsertContentExclude[];
   static const char kJsInlineMaxBytes[];
   static const char kJsOutlineMinBytes[];
   static const char kJsPreserveURLs[];
@@ -373,6 +376,7 @@ class RewriteOptions {
   static const char kForbidFilters[];
   static const char kInlineResourcesWithoutExplicitAuthorization[];
   static const char kRetainComment[];
+  static const char kInsertContentClear[];
   // 2-argument ones:
   static const char kCustomFetchHeader[];
   static const char kLoadFromFile[];
@@ -386,6 +390,7 @@ class RewriteOptions {
   // 3-argument ones:
   static const char kLibrary[];
   static const char kUrlValuedAttribute[];
+  static const char kInsertContentAdd[];
   // apache/ or system/ specific:
   // TODO(matterbury): move these to system_rewrite_options.cc?
   static const char kCacheFlushFilename[];
@@ -738,6 +743,7 @@ class RewriteOptions {
     int id() const { return id_; }
     int percent() const { return percent_; }
     GoogleString ga_id() const { return ga_id_; }
+    GoogleString content_exclude() const { return content_exclude_; }
     int slot() const { return ga_variable_slot_; }
     RewriteLevel rewrite_level() const { return rewrite_level_; }
     FilterSet enabled_filters() const { return enabled_filters_; }
@@ -762,6 +768,7 @@ class RewriteOptions {
 
     int id_;  // id for this experiment
     GoogleString ga_id_;  // Google Analytics ID for this experiment
+    GoogleString content_exclude_;  // Exclude insert content
     int ga_variable_slot_;
     int percent_;  // percentage of traffic to go through this experiment.
     RewriteLevel rewrite_level_;
@@ -1230,6 +1237,11 @@ class RewriteOptions {
     set_option(id, &ga_id_);
   }
 
+  GoogleString content_exclude() const { return content_exclude_.value(); }
+  void set_content_exclude(GoogleString id) {
+    set_option(id, &content_exclude_);
+  }
+
   bool increase_speed_tracking() const {
     return increase_speed_tracking_.value();
   }
@@ -1359,6 +1371,10 @@ class RewriteOptions {
   }
   void set_preserve_url_relativity(bool x) {
     set_option(x, &preserve_url_relativity_);
+  }
+
+  const ContentRuleMap insert_contents() const {
+    return *(insert_contents_.get());
   }
 
   // Returns whether the given URL is valid for use in the cache, given the
@@ -2533,6 +2549,19 @@ class RewriteOptions {
     retain_comments_.MakeWriteable()->Allow(comment);
   }
 
+  // Clear insert content rule 
+  void InsertContentClear(const StringPiece& rule) {
+    Modify();
+
+    GoogleString tag = rule.as_string();
+
+    if (StringCaseEqual(tag,"all")) {
+      insert_contents_.MakeWriteable()->clear();
+    } else {
+      insert_contents_.MakeWriteable()->erase(tag);
+    }
+  }
+
   // If enabled, the 'remove_comments' filter will remove all HTML comments.
   // As discussed in Issue 237, some comments have semantic value and must
   // be retained.
@@ -3694,6 +3723,7 @@ class RewriteOptions {
   Option<bool> preserve_url_relativity_;
 
   Option<GoogleString> ga_id_;
+  Option<GoogleString> content_exclude_;
 
   Option<int64> blink_max_html_size_rewritable_;
   // Time after which we should try to detect if publisher html in blink
@@ -3878,6 +3908,8 @@ class RewriteOptions {
   CopyOnWrite<FastWildcardGroup> allow_when_inlining_resources_;
   CopyOnWrite<FastWildcardGroup> retain_comments_;
   CopyOnWrite<FastWildcardGroup> lazyload_enabled_classes_;
+
+  CopyOnWrite<ContentRuleMap> insert_contents_;
 
   // When certain url patterns are in the referer we want to do a blocking
   // rewrite.

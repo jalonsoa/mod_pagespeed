@@ -1340,6 +1340,8 @@
         'rewriter/image_rewrite_filter.cc',
         'rewriter/in_place_rewrite_context.cc',
         'rewriter/inline_rewrite_context.cc',
+        'rewriter/insert_content_rule_map.cc',
+        'rewriter/insert_content_filter.cc',
         'rewriter/insert_dns_prefetch_filter.cc',
         'rewriter/insert_ga_filter.cc',
         'rewriter/js_combine_filter.cc',

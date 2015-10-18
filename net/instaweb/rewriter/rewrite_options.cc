@@ -184,6 +184,9 @@ const char RewriteOptions::kInPlaceRewriteDeadlineMs[] =
 const char RewriteOptions::kIncreaseSpeedTracking[] = "IncreaseSpeedTracking";
 const char RewriteOptions::kInlineOnlyCriticalImages[] =
     "InlineOnlyCriticalImages";
+const char RewriteOptions::kInsertContentAdd[] = "InsertContentAdd";
+const char RewriteOptions::kInsertContentClear[] = "InsertContentClear";
+const char RewriteOptions::kInsertContentExclude[] = "InsertContentExclude";
 const char RewriteOptions::kJsInlineMaxBytes[] = "JsInlineMaxBytes";
 const char RewriteOptions::kJsOutlineMinBytes[] = "JsOutlineMinBytes";
 const char RewriteOptions::kJsPreserveURLs[] = "JsPreserveURLs";
@@ -643,6 +646,7 @@ const RewriteOptions::Filter kTestFilterSet[] = {
   RewriteOptions::kDeferJavascript,
   RewriteOptions::kDelayImages,  // AKA inline_preview_images
   RewriteOptions::kIncludeJsSourceMaps,
+  RewriteOptions::kInsertContent,
   RewriteOptions::kInsertGA,
   RewriteOptions::kInsertImageDimensions,
   RewriteOptions::kLazyloadImages,
@@ -801,6 +805,8 @@ const RewriteOptions::FilterEnumToIdAndNameEntry
     RewriteOptions::kJavascriptInlineId, "Inline Javascript" },
   { RewriteOptions::kInPlaceOptimizeForBrowser,
     "io", "In-place optimize for browser" },
+  { RewriteOptions::kInsertContent,
+    "iuc", "Insert User Content" },
   { RewriteOptions::kInsertDnsPrefetch,
     "idp", "Insert DNS Prefetch" },
   { RewriteOptions::kInsertGA,
@@ -2180,6 +2186,11 @@ void RewriteOptions::AddProperties() {
       kDirectoryScope,
       "The max-age in ms of cookies that set PageSpeed options.", true);
 
+  AddBaseProperty(
+      "", &RewriteOptions::content_exclude_, "iue", kInsertContentExclude,
+      kDirectoryScope,
+      "Text to set exclude this page from insert content.", true);
+
   // Test-only, so no enum.
   AddRequestProperty(false,
                      &RewriteOptions::test_instant_fetch_rewrite_deadline_,
@@ -3062,6 +3073,8 @@ RewriteOptions::OptionSettingResult RewriteOptions::ParseAndSetOptionFromName1(
     RetainComment(arg);
   } else if (StringCaseEqual(name, kBlockingRewriteRefererUrls)) {
     EnableBlockingRewriteForRefererUrlPattern(arg);
+  } else if (StringCaseEqual(name, kInsertContentClear)) {
+    InsertContentClear(arg);
   } else {
     result = RewriteOptions::kOptionNameUnknown;
   }
@@ -3147,6 +3160,42 @@ RewriteOptions::OptionSettingResult RewriteOptions::ParseAndSetOptionFromName3(
     WriteableDomainLawyer()->AddOriginDomainMapping(arg1, arg2, arg3, handler);
   } else if (StringCaseEqual(name, kMapProxyDomain)) {
     WriteableDomainLawyer()->AddProxyDomainMapping(arg1, arg2, arg3, handler);
+  } else if (StringCaseEqual(name, kInsertContentAdd)) {
+    //EnableFilter(kInsertContent);
+    StringPieceVector options;
+    SplitStringPieceToVector(arg2, ",", &options, true);
+
+    ContentRuleWhere where = INSERT_START;
+    bool fixed = false;
+    bool global = false;
+    bool script = false;
+
+    for (int i = 0, n = options.size(); i < n; ++i) {
+      const StringPiece& option = options[i];
+      if (StringCaseEqual(option, "start")) {
+        where = INSERT_START;
+      } else if (StringCaseEqual(option, "end")) {
+        where = INSERT_END;
+      } else if (StringCaseEqual(option, "before")) {
+        where = INSERT_BEFORE;
+      } else if (StringCaseEqual(option, "after")) {
+        where = INSERT_AFTER;
+      } else if (StringCaseEqual(option, "fixed") || StringCaseEqual(option, "ignore_exclude")) {
+        fixed = true;
+      } else if (StringCaseEqual(option, "global") || StringCaseEqual(option, "all")) {
+        global = true;
+      } else if (StringCaseEqual(option, "script") || StringCaseEqual(option, "variable")) {
+        script = true;
+      } else {
+        *msg = StrCat("Invalid option ", option, " for insert content tag ", arg3);
+        result = RewriteOptions::kOptionValueInvalid;
+        break;
+      }
+    }
+
+    if (result == RewriteOptions::kOptionOk) {
+      insert_contents_.MakeWriteable()->add(arg1,where,fixed,global,script,arg3);
+    }
   } else {
     result = RewriteOptions::kOptionNameUnknown;
   }
@@ -3187,6 +3236,10 @@ RewriteOptions::OptionSettingResult RewriteOptions::SetOptionFromNameInternal(
       } else if (!option->SetFromString(value, error_detail)) {
         return kOptionValueInvalid;
       } else {
+        if (StringCaseEqual(name, kInsertContentExclude)) {
+          GoogleString wildcard = "*" + value.as_string() + "*";
+          RetainComment(wildcard);
+        }
         return kOptionOk;
       }
     }
@@ -3542,6 +3595,8 @@ void RewriteOptions::Merge(const RewriteOptions& src) {
   blocking_rewrite_referer_urls_.MergeOrShare(
       src.blocking_rewrite_referer_urls_);
   override_caching_wildcard_.MergeOrShare(src.override_caching_wildcard_);
+
+  insert_contents_.MergeOrShare(src.insert_contents_);
 
   // Merge url_cache_invalidation_entries_ so that increasing order of timestamp
   // is preserved (assuming this.url_cache_invalidation_entries_ and

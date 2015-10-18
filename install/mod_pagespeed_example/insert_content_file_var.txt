@@ -1,0 +1,1 @@
+<!-- added from file with nginx vars time_local=$time_local host=$host hostname=$hostname server_name=$server_name -->

@@ -94,6 +94,7 @@
 #include "net/instaweb/rewriter/public/image_combine_filter.h"
 #include "net/instaweb/rewriter/public/image_rewrite_filter.h"
 #include "net/instaweb/rewriter/public/in_place_rewrite_context.h"
+#include "net/instaweb/rewriter/public/insert_content_filter.h"
 #include "net/instaweb/rewriter/public/insert_dns_prefetch_filter.h"
 #include "net/instaweb/rewriter/public/insert_ga_filter.h"
 #include "net/instaweb/rewriter/public/javascript_filter.h"
@@ -849,6 +850,7 @@ void RewriteDriver::InitStats(Statistics* statistics) {
   ImageCombineFilter::InitStats(statistics);
   ImageRewriteFilter::InitStats(statistics);
   InPlaceRewriteContext::InitStats(statistics);
+  InsertContentFilter::InitStats(statistics);
   InsertGAFilter::InitStats(statistics);
   JavascriptFilter::InitStats(statistics);
   JsCombineFilter::InitStats(statistics);
@@ -1221,6 +1223,10 @@ void RewriteDriver::AddPostRenderFilters() {
     InsertDnsPrefetchFilter* insert_dns_prefetch_filter =
         new InsertDnsPrefetchFilter(this);
     AddOwnedPostRenderFilter(insert_dns_prefetch_filter);
+  }
+  if (rewrite_options->Enabled(RewriteOptions::kInsertContent)) {
+    InsertContentFilter* insert_content_filter = new InsertContentFilter(this);
+    AddOwnedPostRenderFilter(insert_content_filter);
   }
   if (rewrite_options->Enabled(RewriteOptions::kAddInstrumentation)) {
     // Inject javascript to instrument loading-time. This should run before
